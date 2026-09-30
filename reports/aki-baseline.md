@@ -63,10 +63,22 @@ LLM-Stream. Das ist mehr als bei den beiden anderen Systemen an dieser Stelle me
 Drei Aufrufer von `check_capability_requirements` (REST `rev.invoke`, intern `invoke.rs:132`,
 NATS-Einstieg) — die Gate-Reihenfolge ist für alle drei Ingressen geschlossen.
 
-## 3. Was AKR vergleichsweise DÜNN ist (ehrliche Lückenliste)
+## 3. Lücken und widerlegte Annahmen
 
-Das sind die Stellen, an denen die Fremdsysteme möglicherweise weiter sind. Diese Liste ist bewusst
-vorformuliert, damit die Synthese sie bestätigen oder verwerfen muss:
+Diese Liste war vorformuliert, damit die Synthese sie bestätigen oder verwerfen muss. **Von den
+ursprünglich fünf angenommenen Lücken sind drei widerlegt** (siehe unten). Was bleibt, ist deutlich
+schmaler als der Plan angenommen hat:
+
+| # | Annahme | Status |
+|---|---|---|
+| 1 | Kernel-Event-Log ist Source of Truth | **offen, dünn** — 281 Z im Kernel, Historie im Session-Plugin |
+| 2 | Compaction fehlt | **teilweise** — Prompt-Tail ja, Session-Historie offen |
+| 3 | Doom-loop-Erkennung fehlt | **widerlegt** — AKR hat 3/5-Notice + Hard Abort bei 8 |
+| 4 | Memory-Arten nicht typisiert | **offen** |
+| 5 | Subagenten fehlen | **offen** — kein Subagent-Modul im Agent-Plugin |
+
+### Widerlegte Annahmen (nicht als Lücke führen)
+
 
 1. **Event-Log im Kernel dünn:** `src/event_log/envelope.rs` 197 Z + `mod.rs` 84 Z = 281 Z
    gesamt, `src/event_bus/mod.rs` 19 Z. Die eigentliche Session-Historie liegt im Session-Plugin
@@ -78,13 +90,26 @@ vorformuliert, damit die Synthese sie bestätigen oder verwerfen muss:
    Verdichtungs-Modul gefunden: `src/kernel/subscribers/usage_watch.rs` misst Wachstum über
    `run_id`, verdichtet aber nicht. `plugins/session/src/event_log.rs` (2278 Z) ist der
    Session-Historie-Speicher. Ob und wo dort Historie gekürzt wird, ist offen.
-3. **Doom-loop-Erkennung:** keine dedizierte Stelle gefunden (drei Stellen suchen nach
-   `doom|repeat` → nur Rundenbudgets). dsh hat `repeat-tool-reminder` mit Nudge bei 3/5/8
-   identischen Calls — das hat AKR nach aktuellem Stand nicht.
+3. **Doom-loop-Erkennung — AKR HAT SIE.** Widerlegt eine frühere Fassung dieser Baseline.
+   `plugins/agent/src/handle_chat.rs:946-1004`: Signatur-Vergleich aufeinanderfolgender
+   Tool-Calls, Hinweis-Notice bei 3 und 5 (`TOOL_LOOP_THRESHOLD`), **Hard Abort** bei 8
+   (`TOOL_LOOP_HARD_ABORT`). Zusätzlich ein zweiter Pfad für leeren Content
+   (`loop_by_empty_repeat`). Der Hard-Abort schreibt eine sichtbare Assistant-Nachricht plus
+   `turn.end` mit `finish: "tool_loop_detected"` — der Abbruch ist ein Event, kein stiller Cut.
+   Offen bleibt nur die *Reset-Semantik*: dsh resettet den Zähler bei neuer User-Message,
+   bei AKR ist der Reset nicht verifiziert.
 4. **Memory-Arten:** Store-Namespaces existieren, aber die Trennung „immer injiziert" vs.
    „Retrieval" vs. „Event-History" vs. „Skills" ist im Code nicht als Typ-System erkennbar.
 5. **Subagenten:** `plugins/agent/src/` hat kein Subagent-Modul. Nur `agent.dispatch` über den
    Gateway-Pfad.
+6. **Spill-Ausschlussliste:** AKR HAT SIE. `plugins/agent/src/spill.rs:17`
+   `pub const SPILL_SKIP: &[&str] = &["file.read", "file.patch", "file.diff"]` — zentral,
+   mit Begründung im Kommentar (verhindert den Kreis read → spill → read). Budget 2400,
+   Verzeichnis `/app/data/spill`, Max-Age 14 Tage.
+7. **Goal-Round-Driver — AKR HAT SIE, mit CAS.** `src/kernel/subscribers/goal_round_driver.rs`
+   (21.983 Z): `advance(conv, id, revision)` prüft `goal_rev != r.revision` (`:157-158`) und
+   blockt dann den Goal. Das ist dasselbe compare-and-set im Log wie bei dsh, plus ein
+   No-Progress-Pfad (`:171`) und `blocked_after` (`:51`). **Nicht** als Lücke führen.
 
 ## 4. Anti-Bias-Regel für die Synthese
 

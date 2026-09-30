@@ -72,10 +72,30 @@ schmaler als der Plan angenommen hat:
 | # | Annahme | Status |
 |---|---|---|
 | 1 | Kernel-Event-Log ist Source of Truth | **offen, dünn** — 281 Z im Kernel, Historie im Session-Plugin |
-| 2 | Compaction fehlt | **teilweise** — Prompt-Tail ja, Session-Historie offen |
+| 2 | Compaction fehlt | **widerlegt, mit Nuance** — Mechanik existiert, kein Aufrufer |
 | 3 | Doom-loop-Erkennung fehlt | **widerlegt** — AKR hat 3/5-Notice + Hard Abort bei 8 |
 | 4 | Memory-Arten nicht typisiert | **offen** |
-| 5 | Subagenten fehlen | **offen** — kein Subagent-Modul im Agent-Plugin |
+| 5 | Subagenten fehlen | **teilweise** — `agent.dispatch` existiert, Tiefe/Quote fehlt |
+
+### Compaction: Mechanik vorhanden, Verdrahtung offen
+
+`plugins/session/src/event_log.rs:318` implementiert `pub fn compact(conv_id, summary) -> Result<u64, String>`:
+schreibt zuerst das `context.compact`-Event (`:326`), löscht ältere Events **nach** Write-Ahead (`:316`),
+und `apply_compaction` (`:210`) schneidet beim Laden alles vor dem letzten Marker unsichtbar
+(`:192-224`). `rewrite_visible` (`:406-456`) schreibt nur die sichtbare Sicht neu und zählt
+`dropped_pre_compact` mit (`:453-486`).
+
+**Aber:** eine Suche nach Aufrufern von `compact(` im Agent- und Gateway-Pfad liefert keinen
+Treffer. Die Mechanik ist da, die Auslösung ist nicht verdrahtet. Ein Suchfehler meinerseits
+führte zunächst zur falschen Annahme "Compaction fehlt" — nach `compaction|summar` gesucht statt
+nach `compact` im Event-Log. Korrekt ist: **Mechanik ja, Aufrufer nein.**
+
+### Subagenten: Dispatch existiert, Tiefe nicht
+
+`agent.dispatch` ist über den Gateway-Pfad erreichbar. Es gibt aber **keinen** `max_spawn_depth`,
+keine Rekursionsgrenze und keine Subagenten-Budgetquote im AKR-Code (`grep` über `src/` und
+`plugins/agent/src/` findet nichts). Hermes hat `max_spawn_depth: 1` in der Delegation-Config,
+dssh eine Round-Cap-Logik. Für AKR ist das die einzige echte Lücke aus der Subagent-Liste.
 
 ### Widerlegte Annahmen (nicht als Lücke führen)
 

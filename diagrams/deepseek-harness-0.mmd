@@ -1,0 +1,11 @@
+flowchart TD
+    A[Turn start] --> B[Assemble context]
+    B --> C[Step loop]
+    C --> D[Model call]
+    D --> E[Tool round]
+    E --> F[post-execute waterfall]
+    F --> G{"Goal open"}
+    G -->|"yes"| C
+    G -->|"no"| H[Append events]
+    H --> I[Turn end]
+    D -. timeout .-> T[deadline plus idle watchdog]

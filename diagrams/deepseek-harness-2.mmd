@@ -1,0 +1,9 @@
+flowchart TD
+    A[Append only session log] --> B[Fold and projector]
+    B --> C[Derived history]
+    C --> D[System prompt]
+    D --> E[Model]
+    E --> F[New events]
+    F --> A
+    A -. invariant validates .-> G[Failure with seq]
+    A -. rebuild .-> H[SQLite FTS read model]

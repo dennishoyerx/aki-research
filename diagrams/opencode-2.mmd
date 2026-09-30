@@ -1,0 +1,41 @@
+flowchart TB
+    subgraph DURABLE["SQLite — autoritativ"]
+        SESS["session<br/>id, project_id, parent_id, agent, model,<br/>permission, cost, tokens_*, revert"]
+        MSG1["message (V1)<br/>id PK, session_id, data JSON<br/>idx: (session_id, time_created, id)"]
+        PART["part (V1)<br/>id PK, message_id, data JSON"]
+        MSG2["session_message (V2)<br/>id PK, session_id, type, SEQ<br/>UNIQUE (session_id, seq)"]
+        INBOX["session_input (V2)<br/>delivery steer/queue<br/>admitted_seq, promoted_seq<br/>UNIQUE (session_id, admitted_seq)"]
+        EPOCH["session_context_epoch (V2)<br/>baseline TEXT, snapshot JSON, baseline_seq"]
+        TODO["todo<br/>PK (session_id, position)"]
+    end
+    subgraph RAM["RAM — nicht überlebt Neustart"]
+        RUNNERS["V1: Map<SessionID, Runner><br/>run-state.ts:38"]
+        COORD["V2: Map of SessionKey to Entry<br/>Entry = done, owner, pendingWake, stopping<br/>run-coordinator.ts:28"]
+        APPROVED["V1: approved: Rule()<br/>permission/index.ts:50"]
+        CLAIMS["V1: claims: Map<MsgID, Set<path>><br/>instruction.ts:74"]
+        TOOLS["V2: local: Map<name, Registration())<br/>registry.ts:48"]
+    end
+    subgraph FILES["Dateisystem — von Menschen geschrieben"]
+        AG_G["~/.config/opencode/AGENTS.md"]
+        AG_P["projekt/AGENTS.md (upward findUp)"]
+        AG_C["CLAUDE.md, CONTEXT.md (deprecated)"]
+        CFGI["config.instructions() + URLs"]
+        SKILL["(skill,skills)/**/SKILL.md<br/>+ remote pull"]
+        SPILL["TRUNCATION_DIR / tool-output<br/>TTL 7 Tage"]
+    end
+    RUNNERS -. "durable state" .-> SESS
+    COORD -. "liest" .-> SESS
+    COORD -. "prüft pending" .-> INBOX
+    EPOCH -. "liefert baseline" .-> RUNNERS
+    APPROVED -. "entscheidet ask" .-> RUNNERS
+    CLAIMS -. "verhindert Doppel-Injektion" .-> RUNNERS
+    TOOLS -. "materialize()" .-> RUNNERS
+    AG_G & AG_P & AG_C -. "AGENTS.md → baseline<br/>JEDER TURN neu gelesen" .-> EPOCH
+    SKILL -. "Index → guidance<br/>Body NUR via skill-Tool" .-> EPOCH
+    SPILL -. "vollständiger Output" .-> MSG1
+    MSG1 --> PART
+    MSG2 -. "Projector aus Events" .-> SESS
+    INBOX -->|"promoteSteers/promoteNextQueued<br/>→ Prompted"| MSG2
+    TODO -. "todo-Tool" .-> RUNNERS
+    NOLEARN["❌ KEIN Learning-Loop:<br/>kein Skill-Writer, kein memory.store,<br/>kein Review, kein GC.<br/>AGENTS.md wächst monoton."]
+    NOLEARN -. "nur /init oder<br/>Agent.generate, manuell" .-> AG_P

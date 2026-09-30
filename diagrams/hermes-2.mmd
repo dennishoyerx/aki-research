@@ -1,0 +1,21 @@
+flowchart TD
+  A[Memory kinds] --> B[always injected]
+  A --> C[retrieval]
+  A --> D[session history]
+  A --> E[skills]
+  B --> B1[MEMORY.md char limit 2200]
+  B --> B2[USER.md char limit 1375]
+  B --> B3[frozen snapshot at load time]
+  B3 --> B4[injected into volatile tier]
+  B1 --> B5[model writes via memory tool]
+  B2 --> B5
+  B5 --> B6[live state on disk not visible this session]
+  C --> C1[external memory provider]
+  C --> C2[session search over lineage]
+  D --> D1[SQLite messages table]
+  D --> D2[active and compacted flags]
+  D --> D3[FTS with trigram]
+  E --> E1[index injected name plus description 60 chars]
+  E --> E2[full text loaded on demand by skill_view]
+  E --> E3[curator active stale archived]
+  B6 --> E3

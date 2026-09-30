@@ -1,0 +1,48 @@
+flowchart TD
+    HTTP["POST /session/:id/prompt"] --> loop["SessionPrompt.loop :1343"]
+    loop --> ensure["state.ensureRunning<br/>run-state.ts:88"]
+    ensure -->|"existing runner"| JOIN["await bestehenden Run"]
+    ensure -->|"neu"| RUN["runLoop :1081"]
+    RUN --> W{"while (true)<br/>prompt.ts:1088"}
+    W --> BUSY["status = busy :1089"]
+    BUSY --> RELOAD["filterCompactedEffect<br/>VOLLER History-Reload :1092"]
+    RELOAD --> LATEST["latest msgs → lastUser/lastAssistant/tasks :1096"]
+    LATEST --> EXIT{"finish gesetzt<br/>UND kein Tool-Call<br/>UND parentID == lastUser<br/>:1111-1130"}
+    EXIT -->|"ja"| PRUNE["compaction.prune :1338"]
+    EXIT -->|"nein"| STEP["step++ :1132"]
+    STEP --> TITLE{"step == 1?"} -->|"ja"| TITLEBG["title() im Hintergrund"]
+    STEP --> MODEL["getModel :1141"]
+    MODEL --> TASK{"tasks.pop :1142"}
+    TASK -->|"subtask"| SUB["handleSubtask → continue"]
+    TASK -->|"compaction"| COMP["compaction.process"]
+    TASK -->|"keine"| OVERFLOW{"isOverflow(lastFinished.tokens)<br/>:1161-1168"}
+    OVERFLOW -->|"ja"| CREATEC["compaction.create auto<br/>→ continue"]
+    OVERFLOW -->|"nein"| AGENT["agents.get :1170"]
+    AGENT --> MAXSTEP{"step >= agent.steps<br/>:1178"}
+    MAXSTEP --> REMIND["SessionReminders.apply<br/>mutiert User-Message :1180"]
+    REMIND --> NEWMSG["Assistant-Message anlegen<br/>+ persistieren :1186-1201"]
+    NEWMSG --> TOOLS["SessionTools.resolve<br/>~15 Built-ins + MCP :1226"]
+    TOOLS --> SYS["Effect.all parallel:<br/>skills / env / instructions / mcp / modelMsgs :1257"]
+    SYS --> PROC["processor.process :1272"]
+    PROC --> RETRY{"Effect.retry<br/>retry.ts max 5 :674"}
+    RETRY --> STREAM["llm.stream + takeUntil(needsCompaction)"]
+    STREAM --> EV{"handleEvent"}
+    EV -->|"reasoning-*"| P1["updatePartDelta"]
+    EV -->|"tool-call"| P2["persist 'running'<br/>DANN execute :335"]
+    P2 --> DOOM{"letzte 3 Parts<br/>identisch? :353"}
+    DOOM -->|"ja"| ASK["permission.ask('doom_loop')"]
+    DOOM -->|"nein"| OK
+    EV -->|"tool-result"| P3["completeToolCall → persist"]
+    EV -->|"tool-error"| P4["failToolCall"]
+    P1 --> RETRY
+    P3 --> COMPACT{"needsCompaction?"}
+    P4 --> COMPACT
+    COMPACT -->|"ja"| RES{"result"}
+    COMPACT -->|"nein"| RES
+    RES -->|"continue"| W
+    RES -->|"compact"| CREATEC
+    RES -->|"break"| PRUNE
+    PRUNE --> DONE["lastAssistant() → HTTP response"]
+    COMP -->|"stop"| PRUNE
+    COMP -->|"continue"| W
+    SUB --> W

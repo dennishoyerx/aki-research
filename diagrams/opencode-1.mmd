@@ -1,0 +1,33 @@
+flowchart TB
+    subgraph V1["V1 — SessionPrompt (produktiv)"]
+        direction TB
+        A1["user prompt + files + @mentions"] --> A2["SessionReminders.apply<br/>mutiert User-Message<br/>reminders.ts:15"]
+        A2 --> A3["MessageV2.filterCompacted<br/>Reorder :525"]
+        A3 --> A4["MessageV2.toModelMessagesEffect :131"]
+        A4 --> A5["ProviderTransform<br/>1.922 Z Sonderbehandlung"]
+        A5 --> A6["applyCaching :358<br/>system.slice(0,2) + final.slice(-2)<br/>6 Provider-Key-Namen"]
+        A5 --> A7["PROVIDER-FAMILIEN-PROMPT<br/>in Messages injiziert<br/>system.ts:28-51<br/>8 Substring-Matches"]
+        A6 --> A8["streamText"]
+        A7 --> A8
+    end
+    subgraph V2["V2 — SessionRunner (Ziel)"]
+        direction TB
+        B0["SystemContextRegistry.load<br/>parallel, sortiert nach KEY<br/>registry.ts:39"]
+        B0 --> B1["core/environment + core/date<br/>builtins.ts:26,34"]
+        B0 --> B2["core/instructions<br/>AGENTS.md global + upward<br/>instruction-context.ts:20"]
+        B0 --> B3["core/skill-guidance<br/>Name+Description nur<br/>skill/guidance.ts:58"]
+        B0 --> B4["core/reference-guidance<br/>reference/guidance.ts:51"]
+        B2 --> B5["unavailable? → vorherigen<br/>Snapshot behalten<br/>ReplacementBlocked"]
+        B1 & B2 & B3 & B4 --> B6["ContextEpoch.prepare<br/>reconcile / replace :40-78"]
+        B6 --> B7{"Erste Beobachtung?"}
+        B7 -->|"ja"| B8["baseline + snapshot<br/>persistieren :122-139"]
+        B7 -->|"geändert"| B9["ContextUpdated EVENT<br/>dauerhaft als system-Message :72-76"]
+        B7 -->|"unverändert"| B10["gespeicherte baseline wiederverwenden"]
+        B8 & B10 --> B11["system: (agent.system, baseline)<br/>runner/llm.ts:215"]
+        B9 --> B11
+        B11 --> B12["SessionHistory.entriesForRunner<br/>SQL, seq-basiert :90"]
+        B12 --> B13["toLLMMessages :170"]
+        B13 --> B14["applyCachePolicy<br/>auto: tools+system+latest-user<br/>nur anthropic+bedrock"]
+        B14 --> B15["llm.stream"]
+    end
+    A8 -. "'Parity-Tabelle:<br/>9 missing, 6 partial<br/>specs/v2/session.md:123'" .-> B15

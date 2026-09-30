@@ -1,0 +1,22 @@
+flowchart TD
+  A[run_conversation] --> B[_run_conversation_turn]
+  B --> C{"while api_count and budget"}
+  C --> D[begin_iteration]
+  D --> E[prepare_iteration]
+  E --> F[assemble_api_request]
+  F --> G[run_preflight_gate]
+  G --> H[announce_api_call]
+  H --> I[_run_api_retry_loop]
+  I --> J[apply_retry_restarts]
+  J --> K[normalize_model_response]
+  K --> L{"tool_calls present"}
+  L -->|"yes"| M[run_tool_round]
+  M --> N[validate cap dedupe persist]
+  N --> O[dispatch with auth gate]
+  O --> P[compress_after_tool_results]
+  P --> C
+  L -->|"no"| Q[finish_text_response]
+  Q --> R[finalize_turn]
+  R --> C
+  M --> S[handle_outer_loop_error]
+  S --> C

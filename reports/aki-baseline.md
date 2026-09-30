@@ -85,10 +85,14 @@ und `apply_compaction` (`:210`) schneidet beim Laden alles vor dem letzten Marke
 (`:192-224`). `rewrite_visible` (`:406-456`) schreibt nur die sichtbare Sicht neu und zählt
 `dropped_pre_compact` mit (`:453-486`).
 
-**Aber:** eine Suche nach Aufrufern von `compact(` im Agent- und Gateway-Pfad liefert keinen
-Treffer. Die Mechanik ist da, die Auslösung ist nicht verdrahtet. Ein Suchfehler meinerseits
-führte zunächst zur falschen Annahme "Compaction fehlt" — nach `compaction|summar` gesucht statt
-nach `compact` im Event-Log. Korrekt ist: **Mechanik ja, Aufrufer nein.**
+**Aber:** die Auslösung ist **nicht deterministisch**. `plugins/session/src/main.rs:1849` routet
+`"event.compact"` als Modell-Tool, es gibt aber keinen Threshold, keinen Turn-Hook und keinen
+automatischen Trigger im Agent-Pfad. Der Zusammenfassungs-Text kommt vom Modell. Korrekt ist also:
+**Mechanik und Exposure vorhanden, deterministische Auslösung fehlt.** Das ist eine andere Aussage
+als "fehlt" — AKR kann verdichten, entscheidet aber nicht selbst, *wann*.
+
+Ein Suchfehler meinerseits führte zunächst zur falschen Annahme "Compaction fehlt": ich hatte nach
+`compaction|summar` gesucht statt nach `compact` im Event-Log.
 
 ### Subagenten: Dispatch existiert, Tiefe nicht
 

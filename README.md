@@ -32,8 +32,8 @@ different ways, that is more informative for Aki than three confirmations of one
 ## Status
 
 - [x] Baseline: AKR measured state (`reports/aki-baseline.md`)
-- [ ] Hermes report
-- [ ] DeepSeek Harness report
-- [ ] OpenCode report
-- [ ] Cross-system matrix (`synthesis/`)
-- [ ] Aki findings (`synthesis/aki-findings.md`)
+- [x] Hermes report
+- [x] DeepSeek Harness report
+- [x] OpenCode report
+- [x] Cross-system matrix (`synthesis/`)
+- [x] Aki findings (`synthesis/aki-findings.md`)

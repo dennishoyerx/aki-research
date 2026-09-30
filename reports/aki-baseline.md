@@ -20,7 +20,31 @@ das schon" muss hier auf eine Datei:Zeile zurückführbar sein.
 | Spill | `plugins/agent/src/spill.rs:73` | `pub fn spill(session_id, tool, text)` |
 | LLM-Idle-Deadline | `plugins/llm/src/deadline.ts:26` | `idleMs` + `armIdle()`, Abbruch `"idle"` |
 | Review-Loop | `plugins/agent/src/review.rs` (516 Z) | Skill-Review-Fork |
-| Context-Policy | `plugins/agent/src/turn/context_policy.rs` | Datei existiert, Tiefe nicht gemessen |
+
+### Prompt-Tier-Modell (nachträglich gemessen, ersetzt die frühere Annahme "unbekannt")
+
+`plugins/agent/src/turn/context_policy.rs` modelliert den Prompt in fünf Sektionen:
+
+| Sektion | Rolle | Quelle |
+|---|---|---|
+| `Stable` | unantastbarer Prefix, wird **nie** gekürzt | `context_policy.rs:25` |
+| `Skills` | prozedurales Wissen | `handle_chat.rs:566` |
+| `Memory` | injiziertes Memory | `handle_chat.rs:567` |
+| `Errors` | Error-Reconciliations-Historie | `handle_chat.rs:568` |
+| `Notices` | dynamische Hinweise | `handle_chat.rs:569` |
+
+`CUT_ORDER` (`context_policy.rs:88`) opfert in dieser Reihenfolge:
+**Notices → Errors → Memory → Skills**. `Stable` ist nicht in der Liste, wird also zuletzt
+und nur mit dem Marker `budget/over-stable` angefasst (`:126-133`) — der Überhang verschwindet
+also nicht still. Zählung in **Chars, nicht Bytes** (`handle_chat.rs:571`, Test
+`budget_counts_chars_not_bytes`), Dedupe gegen wiederholte Bullet-Zeilen ab 12 Zeichen
+(`context_policy.rs:161` + `DEDUPE_MIN_LINE_CHARS:147`), Degradation bei Timeout
+(`degrade:242`). Das Ergebnis geht als `policy` in das bestehende `context.inject`-Event —
+die Kürzung ist damit selbst ein beobachtbares Event, kein stiller Seiteneffekt.
+
+**Konsequenz für die Synthese:** AKR hat kein fehlendes Compaction, sondern ein *deterministisches
+Prioritäts-Budget* für den dynamischen Prompt-Tail. Das ist eine andere Antwort auf dieselbe
+Frage als die der drei Fremdsysteme — hier nicht als Lücke behandeln.
 
 **Befund:** AKR hat Budget-Klammern **zwei** (Runden UND Wanduhr) plus Idle-Deadline auf dem
 LLM-Stream. Das ist mehr als bei den beiden anderen Systemen an dieser Stelle messbar war. Wer
@@ -49,8 +73,11 @@ vorformuliert, damit die Synthese sie bestätigen oder verwerfen muss:
    (`plugins/session/src/event_log.rs`, 2278 Z). Der Kernel-Event-Log ist also kein vollständiges
    Source-of-Truth — der Satz „AKR hat einen append-only Event-Log als Source of Truth" ist so
    nicht belegbar.
-2. **Compaction:** kein eigenes Modul gefunden. `usage_watch.rs` misst Wachstum, verdichtet aber
-   nicht. Ob `context_policy.rs` das tut, ist offen.
+2. **Compaction der Session-Historie:** Der dynamische Prompt-Tail ist abgedeckt (siehe
+   Prompt-Tier-Modell oben, `CUT_ORDER`). Für die *Chat-Historie* selbst ist jedoch kein
+   Verdichtungs-Modul gefunden: `src/kernel/subscribers/usage_watch.rs` misst Wachstum über
+   `run_id`, verdichtet aber nicht. `plugins/session/src/event_log.rs` (2278 Z) ist der
+   Session-Historie-Speicher. Ob und wo dort Historie gekürzt wird, ist offen.
 3. **Doom-loop-Erkennung:** keine dedizierte Stelle gefunden (drei Stellen suchen nach
    `doom|repeat` → nur Rundenbudgets). dsh hat `repeat-tool-reminder` mit Nudge bei 3/5/8
    identischen Calls — das hat AKR nach aktuellem Stand nicht.

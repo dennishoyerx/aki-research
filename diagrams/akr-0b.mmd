@@ -1,0 +1,15 @@
+flowchart TD
+  TURN["Rundenbeginn - handle_chat.rs:702<br/>cancel_pruefen, compact_tool_results"] --> LLM["LLM-Aufruf<br/>aktiver Agent waehlt Provider: opencode Prosa, opencodego, openrouter"]
+  LLM --> CLASS{"Klassifikation - handle_chat.rs:888-897<br/>native tool_calls, XML-Fallback, oder Text-Ende"}
+  CLASS -->|"Tool-Calls"| SIG{"Doom-Loop - handle_chat.rs:945-950<br/>3 und 5 gleiche Signatur: Notice, 8: Hard Abort"}
+  CLASS -->|"Text-Ende"| FIN["Antwort und turn.end"]
+  SIG --> EXEC["Dispatch-Chokepoint<br/>resolve, preconditions, permission, requires und store-policy, execute"]
+  EXEC --> SPILLQ{"Spill noetig? Budget 2400"}
+  SPILLQ -->|"nein"| RET["Result an messages"]
+  SPILLQ -->|"ja, ausser SPILL_SKIP - spill.rs:18"| SPILL["Tool-Output nach /app/data/spill<br/>0600, 14 Tage, verhindert read-spill-read"]
+  SPILL --> RET
+  RET --> BUDGET{"Budget da?<br/>Runden budget.rs:264, Wanduhr:128"}
+  BUDGET -->|"ja"| TURN
+  BUDGET -->|"nein"| FIN
+
+  LIMITS["DREI Klammern gleichzeitig<br/>Runden geklemmt 1 bis 50 - Wanduhr 10 bis 3600, Default 120<br/>LLM-Idle-Deadline im Stream - deadline.ts:26"] -.-> BUDGET

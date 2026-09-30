@@ -1,0 +1,35 @@
+flowchart TD
+  subgraph SRC["Quellen"]
+    S1["SYSTEM.md<br/>primaere Quelle, Store-Cache"]
+    S2["SOUL.md<br/>Personlichkeit, nach Tool-Anweisungen"]
+    S3["AGENT-SYSTEM.md<br/>Block VOR SOUL.md"]
+    S4["Skill-Index<br/>Namen und Hinweise, nicht Body"]
+    S5["Memory-Block<br/>memory.inject Ergebnis"]
+    S6["Errors-Historie<br/>Error-Reconciliations"]
+    S7["Notices<br/>Laufzeit-Hinweise, Review, Budget"]
+    S8["Tool-Schemas<br/>nach allow und deny gefiltert"]
+    S9["Conversation-History<br/>messages Vektor"]
+  end
+
+  S1 --> TIER
+  S2 --> TIER
+  S3 --> TIER
+  S4 --> TIER
+  S5 --> TIER
+  S6 --> TIER
+  S7 --> TIER
+  S8 --> TIER
+  S9 --> TIER
+
+  TIER{"context_policy.rs:26<br/>5 Sektionen, Ordered Enum"}
+  TIER --> CUT["CUT_ORDER:88<br/>Notices zu Errors zu Memory zu Skills"]
+  CUT --> STABLE["Stable: wird NIE gekuerzt<br/>Ueberhang nur mit Marker budget/over-stable"]
+  CUT --> DYN["Dynamischer Tail<br/>Chars, nicht Bytes - handle_chat.rs:571"]
+  DYN --> DEDUP["Dedupe ab 12 Zeichen<br/>context_policy.rs:161"]
+  DEDUP --> EVT["context.inject Event mit Policy<br/>die Kuerzung ist selbst beobachtbar"]
+
+  STABLE --> FINAL["FINALER MODEL-REQUEST"]
+  EVT --> FINAL
+  FINAL --> PROVIDER["Provider-spezifisch:<br/>opencode bekommt Prosa, alle anderen Schema"]
+
+  NOTE["WICHTIG: das Ergebnis ist ein Event, kein stiller Seiteneffekt.<br/>Jede Kuerzung ist aus dem Log beantwortbar"] -.-> EVT

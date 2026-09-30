@@ -1,0 +1,42 @@
+flowchart TB
+  subgraph DUR["Dauerhaft - Store, autoritativ"]
+    D1["Event-Log<br/>plugins/session/src/event_log.rs"]
+    D2["Conversation Store<br/>AKR Wahrheit: global.agent.session_store"]
+    D3["Data Plane<br/>mutate und mutate_data, src/store/mod.rs:87 und 141"]
+    D4["Blob und Vector<br/>Qdrant, einziger echter remote Target"]
+  end
+
+  subgraph DER["Abgeleitet - Projector, jederzeit neu baubar"]
+    R1["History fuer Prompt<br/>aus Events rekonstruiert"]
+    R2["Plan-Mode-State<br/>aus Event-Log gelesen, handle_chat.rs:119"]
+    R3["Turn-Usage<br/>aus llm.usage Events"]
+  end
+
+  subgraph RAM["Nur im RAM - stirbt mit dem Prozess"]
+    M1["TurnBudget<br/>Runden und Wanduhr"]
+    M2["NoticeBudget"]
+    M3["consecutive_same_signature<br/>Doom-Loop-Zaehler"]
+    M4["messages Vektor<br/>Volltext im Arbeitsspeicher"]
+  end
+
+  D1 --> R1
+  D1 --> R2
+  D1 --> R3
+  D2 --> R1
+  M4 --> R1
+
+  R1 --> LLM["Model-Request"]
+  D3 --> GUARD
+  GUARD{"Store ist der Guard, nicht der Loop<br/>mutate:87, check_read:120, set_if:677"}
+  GUARD --> D3
+
+  COMP["COMPACTION<br/>event_log.rs:318 compact<br/>schreibt context.compact ZUERST, loescht DANACH"]
+  D1 --> COMP
+  COMP --> D1
+  TRIG["AUSLOESUNG: NICHT DETERMINISTISCH<br/>main.rs:1849 routet event.compact als Modell-Tool.<br/>Kein Threshold, kein Turn-Hook. Das Modell entscheidet WANN."]
+  TRIG -.-> COMP
+
+  GAP["LUECKE: Memory-Arten nicht typisiert<br/>immer injiziert, Retrieval, Event-History, Skills<br/>sind im Code nicht als Typ-System erkennbar"] -.-> D5["Store-Namespaces"]
+  D5 -.-> D4
+
+  DISK["Disk ist der einzige echte relationale und fulltext Target<br/>postgres, jetstream-kv, redis sind deklarativ<br/>config_targets_are_all_wired verhindert Drift"] -.-> D3

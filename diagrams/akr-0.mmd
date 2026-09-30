@@ -1,0 +1,10 @@
+flowchart TD
+  INGRESS["Eingang: 3 Pfade<br/>REST rev.invoke, intern invoke.rs, NATS"] --> HANDLE["handle_chat<br/>handle_chat.rs:4"]
+  HANDLE --> CONV["Conversation aufloesen<br/>echte UUID, create_if_missing false"]
+  CONV --> TSTART["turn.start Event<br/>handle_chat.rs:201 - Trajectory-Anker"]
+  TSTART --> PLAN["Plan-Mode aus Event-Log<br/>handle_chat.rs:119 - kein Extra-LLM-Turn"]
+  PLAN --> MEM["Memory-Staging: 2 Stufen mit Timeout-Degradation<br/>handle_chat.rs:429 loop, degrade:242"]
+  MEM --> POL["Prompt-Policy: 5 Sektionen<br/>context_policy.rs:26, CUT_ORDER:88"]
+  POL --> TURN["Weiter in Teil 2: Turn-Loop"]
+
+  NOTE["Einmal pro Turn, nicht pro Runde"] -.-> TURN

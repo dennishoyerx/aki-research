@@ -1,1 +1,23 @@
-{"theme": "dark", "themeVariables": {"background": "#151a21", "primaryColor": "#1d242e", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#3d4757", "lineColor": "#8b949e", "secondaryColor": "#232a34", "tertiaryColor": "#1d242e", "fontFamily": "ui-sans-serif,system-ui,sans-serif", "fontSize": "15px"}, "flowchart": {"htmlLabels": true, "useMaxWidth": true, "curve": "basis", "padding": 14}}
+{
+ "theme": "dark",
+ "themeVariables": {
+  "background": "#151a21",
+  "primaryColor": "#1d242e",
+  "primaryTextColor": "#e6edf3",
+  "primaryBorderColor": "#3d4757",
+  "lineColor": "#8b949e",
+  "secondaryColor": "#232a34",
+  "tertiaryColor": "#1d242e",
+  "fontFamily": "ui-sans-serif,system-ui,sans-serif",
+  "fontSize": "15px"
+ },
+ "flowchart": {
+  "htmlLabels": true,
+  "useMaxWidth": false,
+  "curve": "basis",
+  "padding": 14,
+  "wrappingWidth": 420,
+  "nodeSpacing": 45,
+  "rankSpacing": 55
+ }
+}
